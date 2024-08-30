@@ -55,9 +55,9 @@ def generate(
 
 
 def main(openai_model: str, num_samples: int, num_partitions: int, partition: int, seed: int):
-    dataset = datasets.load_dataset("ChristophSchuhmann/improved_aesthetics_6.5plus", split="train")
+    # dataset = datasets.load_dataset("ChristophSchuhmann/improved_aesthetics_6.5plus", split="train")
     # Other datasets we considered that may be worth trying:
-    # dataset = datasets.load_dataset("ChristophSchuhmann/MS_COCO_2017_URL_TEXT", split="train")
+    dataset = datasets.load_dataset("ChristophSchuhmann/MS_COCO_2017_URL_TEXT", split="train")
     # dataset = datasets.load_dataset("laion/laion-coco", split="train")
 
     np.random.seed(seed)
@@ -65,7 +65,7 @@ def main(openai_model: str, num_samples: int, num_partitions: int, partition: in
     dataset = dataset[permutation]
     captions = dataset["TEXT"]
     urls = dataset["URL"]
-    output_path = f"data/dataset=laion-aesthetics-6.5_model={openai_model}_samples={num_samples}_partition={partition}.jsonl"  # fmt: skip
+    output_path = f"dataset=MS_COCO_model={openai_model}_samples={num_samples}_partition={partition}.jsonl"  # fmt: skip
     print(f"Prompt file path: {output_path}")
 
     count = 0
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--openai-api-key", required=True, type=str)
     parser.add_argument("--openai-model", required=True, type=str)
-    parser.add_argument("--num-samples", default=10000, type=int)
+    parser.add_argument("--num-samples", default=1000, type=int)
     parser.add_argument("--num-partitions", default=1, type=int)
     parser.add_argument("--partition", default=0, type=int)
     parser.add_argument("--seed", default=0, type=int)

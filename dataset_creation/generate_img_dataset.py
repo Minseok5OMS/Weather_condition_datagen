@@ -26,6 +26,7 @@ from metrics.clip_similarity import ClipSimilarity
 # https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py
 
 
+
 def append_dims(x, target_dims):
     """Appends dimensions to the end of a tensor until it has target_dims dimensions."""
     dims_to_append = target_dims - x.ndim
@@ -103,7 +104,7 @@ class CFGDenoiser(nn.Module):
         x_in = torch.cat([x] * 2)
         sigma_in = torch.cat([sigma] * 2)
         cond_in = torch.cat([uncond, cond])
-        uncond, cond = self.inner_model(x_in, sigma_in, cond=cond_in).chunk(2)
+        uncond, cond = [self.inner_model(x, sigma, cond=cond) for x, sigma, cond in zip(x_in.chunk(2), sigma_in.chunk(2), cond_in.chunk(2))]
         return uncond + (cond - uncond) * cfg_scale
 
 
@@ -130,13 +131,13 @@ def main():
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="stable_diffusion/models/ldm/stable-diffusion-v1/v1-5-pruned-emaonly.ckpt",
+        default="stable_diffusion/models/ldm/v1-5-pruned-emaonly.ckpt",
         help="Path to stable diffusion checkpoint.",
     )
     parser.add_argument(
         "--vae-ckpt",
         type=str,
-        default="stable_diffusion/models/ldm/stable-diffusion-v1/vae-ft-mse-840000-ema-pruned.ckpt",
+        default="stable_diffusion/models/ldm/vae-ft-mse-840000-ema-pruned.ckpt",
         help="Path to vae checkpoint.",
     )
     parser.add_argument(
@@ -256,6 +257,7 @@ def main():
                     seed = torch.randint(1 << 32, ()).item()
                     if seed in results:
                         continue
+
                     torch.manual_seed(seed)
 
                     x = torch.randn(1, 4, 512 // 8, 512 // 8, device="cuda") * sigmas[0]
@@ -265,12 +267,27 @@ def main():
                     p2p_threshold = opt.min_p2p + torch.rand(()).item() * (opt.max_p2p - opt.min_p2p)
                     cfg_scale = opt.min_cfg + torch.rand(()).item() * (opt.max_cfg - opt.min_cfg)
                     extra_args = {"cond": cond, "uncond": uncond, "cfg_scale": cfg_scale}
+
+                    
                     samples_ddim = sample_euler_ancestral(model_wrap_cfg, x, sigmas, p2p_threshold, **extra_args)
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
                     x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
+                    '''x0 = torch.randn(1, 4, 512 // 8, 512 // 8, device="cuda") * sigmas[0]
+                    samples_ddim_0 = sample_euler_ancestral(model_wrap_cfg, x0, sigmas, p2p_threshold, **extra_args)
+                    x_samples_ddim_0 = model.decode_first_stage(samples_ddim_0)
+                    x_samples_ddim_0 = torch.clamp((x_samples_ddim_0 + 1.0) / 2.0, min=0.0, max=1.0)
+                    x0 = x_samples_ddim_0[0]
+
+                    x1 = torch.randn(1, 4, 512 // 8, 512 // 8, device="cuda") * sigmas[0]
+                    samples_ddim_1 = sample_euler_ancestral(model_wrap_cfg, x1, sigmas, p2p_threshold, **extra_args)
+                    x_samples_ddim_1 = model.decode_first_stage(samples_ddim_1)
+                    x_samples_ddim_1 = torch.clamp((x_samples_ddim_1 + 1.0) / 2.0, min=0.0, max=1.0)
+                    x1 = x_samples_ddim_1[0]'''
+
                     x0 = x_samples_ddim[0]
                     x1 = x_samples_ddim[1]
+
 
                     clip_sim_0, clip_sim_1, clip_sim_dir, clip_sim_image = clip_similarity(
                         x0[None], x1[None], [prompt["caption"]], [prompt["output"]]
